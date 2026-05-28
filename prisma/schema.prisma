@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Auth & Users
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String
+  password  String
+  role      Role       @relation(fields: [roleId], references: [id])
+  roleId    String
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  quotes    Quote[]
+  auditLogs AuditLog[]
+  approvals Approval[]
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  permissions String[]
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  cnpj      String   @unique
+  country   String
+  active    Boolean  @default(true)
+  quotes    Quote[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  skus        SKU[]
+  quoteLines  QuoteLine[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SKU {
+  id               String   @id @default(cuid())
+  product          Product  @relation(fields: [productId], references: [id])
+  productId        String
+  code             String   @unique
+  description      String
+  commercialLine   String
+  profitCenter     String
+  materialType     String
+  pbu              String
+  dynamics365Code  String?
+  unit             String
+  listPrice        Decimal  @db.Numeric(18, 2)
+  minimumGross     Decimal  @db.Numeric(18, 2)
+  costPrice        Decimal  @db.Numeric(18, 2)
+  active           Boolean  @default(true)
+  quoteLines       QuoteLine[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([productId, code])
+}
+
+model Quote {
+  id                String   @id @default(cuid())
+  dbr               String   @unique
+  customer          Customer @relation(fields: [customerId], references: [id])
+  customerId        String
+  executive         User     @relation(fields: [executiveId], references: [id])
+  executiveId       String
+  distributor       String
+  country           String
+  currency          String   @default("BRL")
+  status            QuoteStatus @default(DRAFT)
+  contractMonths    Int      @default(60)
+  totalMargin       Decimal  @db.Numeric(5, 2)
+  arr               Decimal  @db.Numeric(18, 2)
+  mrr               Decimal  @db.Numeric(18, 2)
+  tcv               Decimal  @db.Numeric(18, 2)
+  totalBRL          Decimal  @db.Numeric(18, 2)
+  totalEUR          Decimal  @db.Numeric(18, 2)
+  exchangeRate      Decimal  @db.Numeric(10, 4) @default("5.425")
+  quoteProducts     QuoteProduct[]
+  approvals         Approval[]
+  auditLogs         AuditLog[]   @relation("QuoteAuditLogs")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+enum QuoteStatus {
+  DRAFT
+  IN_COMPLETION
+  IN_COMMERCIAL_APPROVAL
+  IN_FINANCIAL_APPROVAL
+  IN_SERVICES_APPROVAL
+  ADJUSTMENT_REQUESTED
+  REJECTED
+  APPROVED
+  RELEASED_FOR_PROPOSAL
+}
+
+model QuoteProduct {
+  id       String   @id @default(cuid())
+  quote    Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quoteId  String
+  product  Product  @relation(fields: [productId], references: [id])
+  productId String
+  lines    QuoteLine[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([quoteId, productId])
+}
+
+model QuoteLine {
+  id                 String   @id @default(cuid())
+  quoteProduct       QuoteProduct @relation(fields: [quoteProductId], references: [id], onDelete: Cascade)
+  quoteProductId     String
+  sku                SKU      @relation(fields: [skuId], references: [id])
+  skuId              String
+  quantity           Decimal  @db.Numeric(18, 2)
+  discount           Decimal  @db.Numeric(5, 2) @default(0)
+  listPrice          Decimal  @db.Numeric(18, 2)
+  offeredPrice       Decimal  @db.Numeric(18, 2)
+  grossPrice         Decimal  @db.Numeric(18, 2)
+  netPrice           Decimal  @db.Numeric(18, 2)
+  margin             Decimal  @db.Numeric(5, 2)
+  costPrice          Decimal  @db.Numeric(18, 2)
+  minimumGross       Decimal  @db.Numeric(18, 2)
+  notes              String?
+  violatesMinimum    Boolean  @default(false)
+  needsException     Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model EngagementConfig {
+  id                 String   @id @default(cuid())
+  percentageOfQuote  Decimal  @db.Numeric(5, 2) @default("15")
+  installments       Int      @default(6)
+  defaultContractMonths Int   @default(60)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Engagement {
+  id                 String   @id @default(cuid())
+  quoteId            String
+  value              Decimal  @db.Numeric(18, 2)
+  installmentValue   Decimal  @db.Numeric(18, 2)
+  installments       Int
+  recurringValue     Decimal  @db.Numeric(18, 2)
+  monthlyRecurring   Decimal  @db.Numeric(18, 2)
+  contractMonths     Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Approval {
+  id        String   @id @default(cuid())
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quoteId   String
+  approver  User     @relation(fields: [approverId], references: [id])
+  approverId String
+  type      ApprovalType
+  status    ApprovalStatus @default(PENDING)
+  reason    String
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  decidedAt DateTime?
+}
+
+enum ApprovalType {
+  COMMERCIAL
+  FINANCIAL
+  SERVICES
+  EXCEPTION
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ADJUSTMENT_REQUESTED
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  user           User     @relation(fields: [userId], references: [id])
+  userId         String
+  quote          Quote?   @relation("QuoteAuditLogs", fields: [quoteId], references: [id], onDelete: SetNull)
+  quoteId        String?
+  entity         String
+  action         String
+  field          String?
+  previousValue  String?
+  newValue       String?
+  justification  String?
+  createdAt      DateTime @default(now())
+}
+
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  from      String   @default("BRL")
+  to        String   @default("EUR")
+  rate      Decimal  @db.Numeric(10, 4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PricingRule {
+  id                String   @id @default(cuid())
+  minMargin         Decimal  @db.Numeric(5, 2)
+  maxMargin         Decimal  @db.Numeric(5, 2)?
+  approvalsRequired String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
