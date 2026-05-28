@@ -3,20 +3,34 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: ferramenta_db
+    container_name: dedalus_cpq_db
     environment:
-      POSTGRES_USER: ferramenta
-      POSTGRES_PASSWORD: ferramenta_dev
-      POSTGRES_DB: ferramenta_dev
+      POSTGRES_USER: dedalus
+      POSTGRES_PASSWORD: dedalus_dev
+      POSTGRES_DB: dedalus_cpq_dev
     ports:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ferramenta']
+      test: ['CMD-SHELL', 'pg_isready -U dedalus']
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - dedalus_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: dedalus_cpq_cache
+    ports:
+      - '6379:6379'
+    networks:
+      - dedalus_network
 
 volumes:
   postgres_data:
+
+networks:
+  dedalus_network:
+    driver: bridge

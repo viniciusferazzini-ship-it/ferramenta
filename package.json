@@ -1,15 +1,17 @@
 {
-  "name": "ferramenta-monorepo",
+  "name": "dedalus-cpq",
   "version": "0.1.0",
   "private": true,
-  "description": "A full-stack pricing tool application",
+  "description": "Enterprise CPQ platform for Dedalus Healthcare",
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
-    "lint": "pnpm -r run lint"
+    "lint": "pnpm -r run lint",
+    "type-check": "pnpm -r run type-check"
   },
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.0"
   }
 }
